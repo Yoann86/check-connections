@@ -4,8 +4,8 @@ dotenv.config();
 const requiredKeys = ['MISTRAL_API_KEY', 'GROQ_API_KEY', 'HF_API_KEY'];
 
 for (const key of requiredKeys) {
-    if (!process.env[key]) throw new Error(`${key} manquante dans .env`);
-    console.log(`${key}: présente`);
+    if (!process.env[key]) console.warn(`⚠️  ${key} manquante dans .env`);
+    else console.log(`${key}: présente`);
 }
 
 const MISTRAL_API_KEY = process.env.MISTRAL_API_KEY;
@@ -34,7 +34,7 @@ const providersConfig = [
 ];
 
 async function callProvider(provider, prompt, maxTokens) {
-    const start = Date.now(); // on démarre le chrono
+    const start = Date.now(); 
     
     const response = await fetch(provider.url, {
         method: 'POST',
@@ -63,7 +63,16 @@ async function callProvider(provider, prompt, maxTokens) {
 
 async function checkProvider(provider){
     const PROMPT_INIT = "Réponds uniquement par 'OK'.";
-    const results = await callProvider(provider,PROMPT_INIT,5);
+    try {
+        return await callProvider(provider, PROMPT_INIT, 5);
+    } catch (err) {
+        return {
+            provider: provider.name,
+            latency: null,
+            content: null,
+            error: err.message
+        };
+    }
     // console.log(results);
     return(results);
 }
@@ -73,13 +82,15 @@ function displayResult(results){
     let connectionActive = 0;
 
     for (const res of results){
-        const vignette = res.content ? "✅" : "❌";
-
-        if (res.content === "OK") {
+        if (res.error) {    
+            const isNetwork = res.error.includes('fetch');
+            const icon = isNetwork ? "🌐" : "❌";
+            const content = isNetwork ? "ERREUR RÉSEAU" : "ERREUR AUTHENTIFICATION";
+            console.log(`${icon} ${res.provider.padEnd(15)}${content}`)
+        } else {
             connectionActive++;
-        }
-
-        console.log(`${vignette} ${res.provider.padEnd(15)}${res.latency}ms`);
+            console.log(`✅ ${res.provider.padEnd(15)}${res.latency}ms`);
+        } 
     }
 
     console.log(`\n ${connectionActive}/${res.length} connexions actives\n`);
